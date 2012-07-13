@@ -8,11 +8,15 @@ op = OptionParser.new do |opts|
   opts.on('-c', '--config FILE') do |file|
     options[:config] = file
   end
+  opts.on('-t', '--thread COUNT') do |count|
+    options[:threads] = [1, count.to_i].max
+  end
 end
 
 op.parse!
 
 options[:config] ||= 'config/default.yml'
+options[:threads] ||= 1
 
 context = GitPusher::Context.instance
 context.home = File.join(File.dirname(__FILE__), '..')
