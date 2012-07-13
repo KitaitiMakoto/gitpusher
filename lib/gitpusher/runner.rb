@@ -11,19 +11,21 @@ module GitPusher
       dest = GitPusher::Service::Factory.create(context.config[:dest])
 
       base_dir = context.config[:base_dir]
-      queue = Queue.new
-      threads = []
-      context.threads.times do
-        threads << Thread.start {
-          while src_repo = queue.deq
-            mirror src_repo, dest, base_dir
-          end
-        }
+      Dir.chdir(base_dir) do
+        queue = Queue.new
+        threads = []
+        context.threads.times do
+          threads << Thread.start {
+            while src_repo = queue.deq
+              mirror src_repo, dest, base_dir
+            end
+          }
+        end
+        src.repos.each do |src_repo|
+          queue.enq src_repo
+        end
+        threads.each &:join
       end
-      src.repos.each do |src_repo|
-        queue.enq src_repo
-      end
-      threads.each &:join
     end
 
     def self.mirror(src_repo, dest, base_dir)
@@ -31,10 +33,8 @@ module GitPusher
       repo_name = File.basename(src_repo.url).gsub(/.git$/, '')
       repo_path = File.join(base_dir, repo_name)
       unless File.exist?(repo_path)
-        Dir.chdir(base_dir) do
-          p src_repo.url
-          `git clone #{src_repo.url}`
-        end
+        p src_repo.url
+        `git clone #{src_repo.url}`
       end
 
       local_repo = Grit::Repo.new(repo_path)
