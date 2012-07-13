@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+require 'thread'
 require 'grit'
 
 module GitPusher
@@ -10,9 +11,19 @@ module GitPusher
       dest = GitPusher::Service::Factory.create(context.config[:dest])
 
       base_dir = context.config[:base_dir]
-      src.repos.each do |src_repo|
-        mirror src_repo, dest, base_dir
+      queue = Queue.new
+      threads = []
+      context.threads.times do
+        threads << Thread.start {
+          while src_repo = queue.deq
+            mirror src_repo, dest, base_dir
+          end
+        }
       end
+      src.repos.each do |src_repo|
+        queue.enq src_repo
+      end
+      threads.each &:join
     end
 
     def self.mirror(src_repo, dest, base_dir)
